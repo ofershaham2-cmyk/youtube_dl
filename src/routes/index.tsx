@@ -6,7 +6,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [url, setUrl] = useState("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  const [url, setUrl] = useState("https://www.youtube.com/watch?v=prSfxdmjNzE");
   const [type, setType] = useState<"srt" | "vtt" | "txt">("srt");
   const [language, setLanguage] = useState("en");
   const [videoId, setVideoId] = useState("dQw4w9WgXcQ");
