@@ -9,9 +9,14 @@ function Index() {
   const [url, setUrl] = useState("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
   const [type, setType] = useState<"srt" | "vtt" | "txt">("srt");
   const [language, setLanguage] = useState("en");
+  const [videoId, setVideoId] = useState("dQw4w9WgXcQ");
+  const [targetLanguage, setTargetLanguage] = useState("es");
   const [loading, setLoading] = useState(false);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [result, setResult] = useState<string>("");
+  const [transcriptResult, setTranscriptResult] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [transcriptError, setTranscriptError] = useState<string>("");
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
@@ -28,6 +33,36 @@ function Index() {
       setError((err as Error).message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function runTranscriptAction(action: "supported" | "defaults" | "translate") {
+    setTranscriptLoading(true);
+    setTranscriptError("");
+    setTranscriptResult("");
+    try {
+      const params = new URLSearchParams({ videoID: videoId });
+      if (action === "translate") {
+        params.set("language", language);
+        params.set("targetLanguage", targetLanguage);
+        params.set("type", type);
+      }
+
+      const endpoint =
+        action === "supported"
+          ? "/api/transcript-supported-languages"
+          : action === "defaults"
+            ? "/api/default-transcript-languages"
+            : "/api/translate-transcript";
+
+      const res = await fetch(`${endpoint}?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setTranscriptResult(JSON.stringify(data, null, 2));
+    } catch (err) {
+      setTranscriptError((err as Error).message);
+    } finally {
+      setTranscriptLoading(false);
     }
   }
 
@@ -104,6 +139,76 @@ function Index() {
             {result}
           </pre>
         )}
+
+        <section className="mt-8 rounded-lg border p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Transcript endpoints</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Inspect available transcript languages or request a translated version.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium">Video ID</label>
+              <input
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={videoId}
+                onChange={(e) => setVideoId(e.target.value)}
+                placeholder="dQw4w9WgXcQ"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Target language</label>
+              <input
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value)}
+                placeholder="es"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => runTranscriptAction("supported")}
+              disabled={transcriptLoading}
+              className="rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {transcriptLoading ? "Loading…" : "List supported languages"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runTranscriptAction("defaults")}
+              disabled={transcriptLoading}
+              className="rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {transcriptLoading ? "Loading…" : "List default languages"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runTranscriptAction("translate")}
+              disabled={transcriptLoading}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            >
+              {transcriptLoading ? "Translating…" : "Translate transcript"}
+            </button>
+          </div>
+
+          {transcriptError && (
+            <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+              {transcriptError}
+            </div>
+          )}
+          {transcriptResult && (
+            <pre className="mt-4 max-h-[400px] overflow-auto rounded-md border bg-muted p-4 text-xs whitespace-pre-wrap">
+              {transcriptResult}
+            </pre>
+          )}
+        </section>
       </div>
     </div>
   );
