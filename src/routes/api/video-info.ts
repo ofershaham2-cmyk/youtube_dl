@@ -41,7 +41,15 @@ export const Route = createFileRoute("/api/video-info")({
             })),
           });
         } catch (err) {
-          return json({ error: (err as Error).message }, 502);
+          console.error("[/api/video-info] upstream failure:", err);
+          return json(
+            {
+              error: "SUBTITLE_SERVICE_UNAVAILABLE",
+              message: (err as Error).message || "Unknown error",
+              fallback: true,
+            },
+            200,
+          );
         }
       },
     },

@@ -65,7 +65,18 @@ export const Route = createFileRoute("/api/subtitles")({
           }
           return json(result);
         } catch (err) {
-          return json({ error: (err as Error).message }, 502);
+          const message = (err as Error).message || "Unknown error";
+          console.error("[/api/subtitles] upstream failure:", err);
+          return json(
+            {
+              error: "SUBTITLE_SERVICE_UNAVAILABLE",
+              message,
+              fallback: true,
+              hint:
+                "DownSub blocks requests from Cloudflare Worker IPs. Run downsub_crawler as a self-hosted proxy and point this endpoint at it.",
+            },
+            200,
+          );
         }
       },
     },

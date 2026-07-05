@@ -78,6 +78,7 @@ export async function fetchVideoInfo(videoUrlOrId: string): Promise<VideoInfo> {
   if (!videoId) throw new Error("Could not extract a YouTube video ID from input");
   const encrypted = encryptId(videoId);
   const res = await fetch(API_INFO + encrypted, {
+    signal: AbortSignal.timeout(10_000),
     headers: {
       "user-agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -174,6 +175,7 @@ export async function fetchSubtitle(params: {
     language: languageParam,
   });
   const res = await fetch(downloadUrl, {
+    signal: AbortSignal.timeout(10_000),
     headers: {
       "user-agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
