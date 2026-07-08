@@ -80,38 +80,95 @@ export function extractVideoId(input: string): string | null {
   return null;
 }
 
-export async function fetchVideoInfo(videoUrlOrId: string): Promise<VideoInfo> {
-  const videoId = extractVideoId(videoUrlOrId);
-  if (!videoId) throw new Error("Could not extract a YouTube video ID from input");
-  const encrypted = encryptId(videoId);
-  const res = await fetch(API_INFO + encrypted, {
+export async function extractPlaylistVideoIds(playlistUrlOrId: string): Promise<string[]> {
+  const trimmed = playlistUrlOrId.trim();
+  if (!trimmed) throw new Error("A playlist URL or playlist ID is required");
+
+  const playlistUrl = (() => {
+    try {
+      const u = new URL(trimmed);
+      if (u.hostname === "youtu.be") return `https://www.youtube.com/playlist?list=${u.pathname.slice(1)}`;
+      if (/(^|\.)youtube\.com$/.test(u.hostname) && u.pathname === "/playlist") {
+        const list = u.searchParams.get("list");
+        return list ? `https://www.youtube.com/playlist?list=${encodeURIComponent(list)}` : trimmed;
+      }
+    } catch {
+      // fallthrough
+    }
+    return trimmed;
+  })();
+
+  const res = await fetch(playlistUrl, {
     signal: AbortSignal.timeout(10_000),
     headers: {
       "user-agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-      accept: "application/json, text/plain, */*",
-      origin: "https://downsub.com",
-      referer: "https://downsub.com/",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      origin: "https://www.youtube.com",
+      referer: "https://www.youtube.com/",
     },
   });
-  if (!res.ok) throw new Error(`DownSub info API returned HTTP ${res.status}`);
-  const raw = (await res.json()) as {
-    state?: number;
-    title?: string;
-    source?: string;
-    subtitles?: SubtitleEntry[];
-    subtitlesAutoTrans?: SubtitleEntry[];
-    urlEncrypt?: string;
-  };
-  return {
-    state: raw.state ?? 3,
-    title: raw.title ?? "",
-    source: raw.source,
-    subtitles: raw.subtitles ?? [],
-    subtitlesAutoTrans: raw.subtitlesAutoTrans ?? [],
-    urlEncrypt: raw.urlEncrypt,
-    raw,
-  };
+  if (!res.ok) throw new Error(`Playlist page fetch failed: HTTP ${res.status}`);
+
+  const html = await res.text();
+  const ids = Array.from(new Set(Array.from(html.matchAll(/(?:watch\?v=|\/shorts\/|\/embed\/|\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/g), (m) => m[1])));
+  if (ids.length > 0) return ids;
+
+  const fallbackIds = Array.from(
+    new Set(Array.from(html.matchAll(/([a-zA-Z0-9_-]{11})/g), (m) => m[1]).filter((id) => id.length === 11)),
+  );
+  return fallbackIds;
+}
+
+export async function fetchVideoInfo(videoUrlOrId: string): Promise<VideoInfo> {
+  const videoId = extractVideoId(videoUrlOrId);
+  if (!videoId) throw new Error("Could not extract a YouTube video ID from input");
+  const encrypted = encryptId(videoId);
+
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(API_INFO + encrypted, {
+        signal: AbortSignal.timeout(10_000),
+        headers: {
+          "user-agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+          accept: "application/json, text/plain, */*",
+          origin: "https://downsub.com",
+          referer: "https://downsub.com/",
+        },
+      });
+      if (!res.ok) {
+        if (res.status >= 500 && attempt < 2) {
+          lastError = new Error(`DownSub info API returned HTTP ${res.status}`);
+          continue;
+        }
+        throw new Error(`DownSub info API returned HTTP ${res.status}`);
+      }
+      const raw = (await res.json()) as {
+        state?: number;
+        title?: string;
+        source?: string;
+        subtitles?: SubtitleEntry[];
+        subtitlesAutoTrans?: SubtitleEntry[];
+        urlEncrypt?: string;
+      };
+      return {
+        state: raw.state ?? 3,
+        title: raw.title ?? "",
+        source: raw.source,
+        subtitles: raw.subtitles ?? [],
+        subtitlesAutoTrans: raw.subtitlesAutoTrans ?? [],
+        urlEncrypt: raw.urlEncrypt,
+        raw,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt >= 2) throw lastError;
+    }
+  }
+
+  throw lastError ?? new Error("DownSub info request failed");
 }
 
 export function buildSubtitleDownloadUrl(params: {

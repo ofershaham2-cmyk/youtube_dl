@@ -11,3 +11,7 @@ https://youtube-dl-jrte.onrender.com/
 
 https://b0a5483b-2a0b-4a85-8be4-b826cbbc969e.lovableproject.com/api/subtitles?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ&type=srt&language=en
 https://youtube-dl-jrte.onrender.com/api/subtitles?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ&type=srt&language=en
+
+CLI playlist entrypoint:
+
+npm run playlist -- --playlist "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID" [--language en] [--type srt]

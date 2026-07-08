@@ -117,6 +117,47 @@ export const Route = createFileRoute("/api/openapi.json")({
                 },
               },
             },
+            "/api/playlist": {
+              get: {
+                summary: "Fetch subtitle tracks for every video in a YouTube playlist",
+                parameters: [
+                  {
+                    name: "playlist",
+                    in: "query",
+                    required: true,
+                    schema: { type: "string" },
+                    description: "YouTube playlist URL or playlist ID",
+                    example: "https://www.youtube.com/playlist?list=PLWQv2HCp7bQva9vVwfZspuwBG1imP4HkI",
+                  },
+                  {
+                    name: "type",
+                    in: "query",
+                    required: false,
+                    schema: { type: "string", enum: ["srt", "vtt", "txt"], default: "srt" },
+                    description: "Subtitle file format",
+                  },
+                  {
+                    name: "language",
+                    in: "query",
+                    required: false,
+                    schema: { type: "string", default: "en" },
+                    description: "Language code (e.g. en, es, fr, zh-CN)",
+                  },
+                  {
+                    name: "autoTranslate",
+                    in: "query",
+                    required: false,
+                    schema: { type: "string", enum: ["0", "1"], default: "1" },
+                    description: "Allow YouTube auto-translated tracks as a fallback",
+                  },
+                ],
+                responses: {
+                  "200": { description: "Playlist subtitle results for each discovered video" },
+                  "400": { description: "Bad request" },
+                  "502": { description: "Upstream DownSub error" },
+                },
+              },
+            },
             "/api/subtitles": {
               get: {
                 summary: "Fetch a subtitle track as JSON or file download",

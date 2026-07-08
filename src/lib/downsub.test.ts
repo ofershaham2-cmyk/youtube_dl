@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildSubtitleDownloadUrl, fetchVideoInfo, getDefaultTranscriptLanguages, getTranscriptSupportedLanguages, pickSubtitle } from "./downsub";
+import {
+  buildSubtitleDownloadUrl,
+  extractPlaylistVideoIds,
+  fetchVideoInfo,
+  getDefaultTranscriptLanguages,
+  getTranscriptSupportedLanguages,
+  pickSubtitle,
+} from "./downsub";
 
 describe("downsub helpers", () => {
   it("builds a subtitle download URL with translation params", () => {
@@ -54,7 +61,45 @@ describe("downsub helpers", () => {
   });
 });
 
+describe("extractPlaylistVideoIds", () => {
+  it("extracts unique video IDs from a playlist page", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      text: async () => '<html><a href="/watch?v=abc123def45">one</a><a href="https://www.youtube.com/watch?v=abc123def45">dup</a><a href="https://www.youtube.com/watch?v=xyz987zyx54">two</a></html>',
+    } as Response);
+
+    const ids = await extractPlaylistVideoIds("https://www.youtube.com/playlist?list=PL123");
+
+    expect(ids).toEqual(["abc123def45", "xyz987zyx54"]);
+    expect(fetchSpy).toHaveBeenCalled();
+  });
+});
+
 describe("fetchVideoInfo", () => {
+  it("retries when the DownSub info endpoint returns a transient 503", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: async () => ({}),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          state: 200,
+          title: "demo",
+          subtitles: [{ code: "en", name: "English", url: "manual" }],
+          subtitlesAutoTrans: [],
+        }),
+      } as Response);
+
+    const info = await fetchVideoInfo("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+
+    expect(info.title).toBe("demo");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
   it("extracts a video ID and calls the DownSub info endpoint", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
